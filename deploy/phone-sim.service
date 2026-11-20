@@ -1,0 +1,65 @@
+# phone-sim systemd 单元 —— 安卓手机模拟器（Python 标准库单文件 HTTP 服务）
+#
+# 安装步骤（应用机 dev，180.76.180.249，root 执行）：
+#   1) 准备用户与代码（详见 deploy/DEPLOY.md 第 1 节）：
+#        useradd --system --home-dir /opt/phone-sim --shell /usr/sbin/nologin --no-create-home phonesim
+#        git clone https://github.com/wzqfwanj/phone-sim.git /opt/phone-sim
+#        chown -R phonesim:phonesim /opt/phone-sim
+#   2) 准备环境文件（详见第 2 节）：
+#        /etc/phone-sim.env，root:root 0600，内容至少包含
+#        HOST=0.0.0.0 / PORT=8140 / DATA_DIR=/var/lib/phone-sim / APP_TZ=Asia/Shanghai
+#   3) 安装并启动本单元：
+#        install -m 0644 /opt/phone-sim/deploy/phone-sim.service /etc/systemd/system/phone-sim.service
+#        systemctl daemon-reload
+#        systemctl enable --now phone-sim
+#        systemctl status phone-sim --no-pager
+#   4) 自检：curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8140/api/health   # 期望 200
+#
+# 说明：
+#   - 应用无第三方依赖，ExecStart 直接用系统 /usr/bin/python3（应用机为 3.12）。
+#   - 数据目录由 StateDirectory 创建为 /var/lib/phone-sim（所有组 phonesim，模式 0750），
+#     与 EnvironmentFile 中的 DATA_DIR=/var/lib/phone-sim 对应；SQLite 文件为 notes.db。
+#   - UMask=0077 让 SQLite 数据文件只对 phonesim 可读写。
+#   - 若某条加固指令在旧版 systemd 上不被支持，先 `systemctl cat phone-sim` 与
+#     `journalctl -u phone-sim` 确认，再删除该行；不要整段删除加固配置。
+
+[Unit]
+Description=phone-sim - 安卓手机模拟器（Python 标准库 HTTP 服务，监听 8140）
+Documentation=https://github.com/wzqfwanj/phone-sim/blob/main/deploy/DEPLOY.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=phonesim
+Group=phonesim
+WorkingDirectory=/opt/phone-sim
+EnvironmentFile=/etc/phone-sim.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /opt/phone-sim/app.py
+Restart=on-failure
+RestartSec=3
+
+# 数据目录：/var/lib/phone-sim，由 systemd 创建并授权给 phonesim
+StateDirectory=phone-sim
+StateDirectoryMode=0750
+UMask=0077
+ReadWritePaths=/var/lib/phone-sim
+
+# 基础加固（只读写自身数据目录，其余文件系统只读）
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
