@@ -1,17 +1,19 @@
 # phone-sim systemd 单元 —— 安卓手机模拟器（Python 标准库单文件 HTTP 服务）
 #
 # 安装步骤（应用机 dev，180.76.180.249，root 执行）：
-#   1) 准备用户与代码（详见 deploy/DEPLOY.md 第 1 节）：
+#   1) 准备用户与代码目录（详见 deploy/DEPLOY.md 第 1 节）：
 #        useradd --system --home-dir /opt/phone-sim --shell /usr/sbin/nologin --no-create-home phonesim
-#        git clone https://github.com/wzqfwanj/phone-sim.git /opt/phone-sim
-#        chown -R phonesim:phonesim /opt/phone-sim
+#        install -d -o phonesim -g phonesim -m 0755 /opt/phone-sim
+#        代码由部署脚本 deploy/deploy.sh 把本地仓库快照（git archive 打包）经 scp 同步到
+#        /opt/phone-sim；应用机不需要安装 git，也不需要访问 GitHub。
+#        /opt/phone-sim 是普通目录，不是 git 仓库。
 #   2) 准备环境文件（详见第 2 节）：
 #        /etc/phone-sim.env，root:root 0600，内容至少包含
 #        HOST=0.0.0.0 / PORT=8140 / DATA_DIR=/var/lib/phone-sim / APP_TZ=Asia/Shanghai
-#   3) 安装并启动本单元：
-#        install -m 0644 /opt/phone-sim/deploy/phone-sim.service /etc/systemd/system/phone-sim.service
-#        systemctl daemon-reload
-#        systemctl enable --now phone-sim
+#   3) 安装并启动本单元（unit 由本地 scp 到应用机，见 DEPLOY.md 第 3 节）：
+#        scp deploy/phone-sim.service dev:/etc/systemd/system/phone-sim.service
+#        ssh dev 'chmod 0644 /etc/systemd/system/phone-sim.service; systemctl daemon-reload; systemctl enable phone-sim'
+#        首次启动由 deploy/deploy.sh 完成（同步代码后 systemctl restart phone-sim）
 #        systemctl status phone-sim --no-pager
 #   4) 自检：curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8140/api/health   # 期望 200
 #

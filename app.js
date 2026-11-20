@@ -86,6 +86,7 @@
   var appCleanup = null;
   var suppressClickUntil = 0;
   var toastTimer = 0;
+  var lastTickSecond = -1;
 
   // ---------------------------------------------------------- 工具函数
 
@@ -191,6 +192,15 @@
 
     var shadeDate = $("#shadeDate");
     if (shadeDate) shadeDate.textContent = fmtFullDate(now);
+
+    // 备忘录相对时间（刚刚 / N 分钟前）每秒刷新一次，避免长时间停留后过期
+    if (now.getSeconds() !== lastTickSecond) {
+      lastTickSecond = now.getSeconds();
+      var noteTimes = document.querySelectorAll("[data-note-ts]");
+      for (var i = 0; i < noteTimes.length; i += 1) {
+        noteTimes[i].textContent = relTime(noteTimes[i].getAttribute("data-note-ts"));
+      }
+    }
   }
 
   // ---------------------------------------------------------- 层与导航
@@ -200,6 +210,8 @@
     var lockEl = $("#lock");
     if (!lockEl) return;
     lockEl.classList.toggle("is-unlocked", !locked);
+    var screen = $("#screen");
+    if (screen) screen.classList.toggle("is-locked", locked);
     if (locked) {
       closeApp();
       closeDrawer();
@@ -274,6 +286,7 @@
   }
 
   function navBack() {
+    if (state.locked) return toast("已锁定，上滑解锁");
     if (state.shade) return closeShade();
     if (state.drawer) return closeDrawer();
     if (state.app) return closeApp();
@@ -281,13 +294,14 @@
   }
 
   function navHome() {
+    if (state.locked) return; // 锁屏下「主屏」不解锁，避免绕过锁屏
     closeShade();
     closeDrawer();
     closeApp();
-    unlock();
   }
 
   function navRecents() {
+    if (state.locked) return toast("已锁定，上滑解锁");
     toast("最近任务暂未实现（最小模拟器）");
   }
 
@@ -680,7 +694,9 @@
             '<div class="note">' +
             '<div class="note-main"><p class="note-text">' +
             escapeHTML(note.text) +
-            '</p><p class="note-time">' +
+            '</p><p class="note-time" data-note-ts="' +
+            escapeHTML(note.created_at) +
+            '">' +
             relTime(note.created_at) +
             "</p></div>" +
             '<button class="note-del" type="button" data-del="' +
@@ -975,6 +991,14 @@
       else if (state.drawer) closeDrawer();
       else if (state.app) closeApp();
     });
+
+    // 锁屏点击即解锁（滑动解锁由 pointer 手势处理；鼠标/键盘/程序化点击也能解锁）
+    var lockEl = $("#lock");
+    if (lockEl) {
+      lockEl.addEventListener("click", function () {
+        if (state.locked) unlock();
+      });
+    }
 
     var shade = $("#shade");
     if (shade) {

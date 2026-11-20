@@ -9,12 +9,17 @@
 浏览器 ──https──> 网关机 aliyun 8.133.209.25（Caddy，站点 https://wkeeli.cn）
                         │  handle_path /phone/*（剥掉 /phone 前缀）
                         └──http──> 应用机 dev 180.76.180.249:8140（systemd 服务 phone-sim）
+
+本地部署机（Windows Git Bash）──git archive 打包 + scp──> 应用机 /opt/phone-sim（普通目录，非 git 仓库）
 ```
+
+> 重要：应用机**无法访问 GitHub**（实测直连与代理均失败），因此不使用 `git clone` / `git pull`。
+> 代码统一由部署机打包上传；应用机不需要安装 git，也不需要访问 GitHub。以下所有「同步代码」都指这条链路。
 
 | 项目 | 值 |
 | --- | --- |
 | 应用机 | `ssh dev` → 180.76.180.249，root 登录，Ubuntu，python3.12 |
-| 代码目录 | `/opt/phone-sim`（从 GitHub 公开仓库克隆） |
+| 代码目录 | `/opt/phone-sim`（普通目录，由部署机 `git archive` 快照同步覆盖，**不是 git 仓库**） |
 | 运行用户 | `phonesim`（系统用户，nologin，home 为 `/opt/phone-sim`） |
 | 环境文件 | `/etc/phone-sim.env`（root:root，0600） |
 | 数据目录 | `/var/lib/phone-sim`（由 systemd `StateDirectory` 创建，SQLite 文件 `notes.db`） |
@@ -28,42 +33,45 @@
 
 ## 0 前置条件
 
-- 仓库已在 GitHub 公开：<https://github.com/wzqfwanj/phone-sim>，本地 `git push` 可用。
+- 仓库已在 GitHub 公开：<https://github.com/wzqfwanj/phone-sim>，本地 `git push` 可用
+  （本仓库已配置 local `http.proxy` 指向 `127.0.0.1:7897`）。
+- 部署机（本地 Windows Git Bash）具备：`git`、`ssh`、`scp`、`tar`、`curl`。
 - 本地已配置 ssh 别名：`ssh dev`、`ssh aliyun` 可直接 root 登录。
-- 应用机：能访问 GitHub（clone/pull），python3 ≥ 3.10（实际 3.12），`8140` 端口未被占用。
+- 应用机：**无需访问 GitHub、无需安装 git**；python3 ≥ 3.10（实际 3.12），`8140` 端口未被占用，
+  `/tmp` 可写（部署时 scp 压缩包落在这里）。
 - 网关机能出站访问 `180.76.180.249:8140`（安全组/防火墙放行即可；应用机不需要对公网暴露 8140）。
 - 网关机：Caddy 2.x 正在运行，`wkeeli.cn` 证书正常，站点块顶部已有全站 Basic Auth。
 
 部署前先确认环境：
 
 ```bash
-ssh dev 'python3 -V; command -v git; ss -lntp | grep ":8140" || echo "8140 空闲"'
+# 应用机：只检查 python3、tar（解压用）与端口，不需要 git
+ssh dev 'python3 -V; command -v tar; ss -lntp | grep ":8140" || echo "8140 空闲"; df -h /tmp | tail -1'
+# 网关机：Caddy 与站点配置
 ssh aliyun 'caddy version; ls -l /etc/caddy/Caddyfile'
 ```
 
-## 1 应用机：建用户与克隆代码
+## 1 应用机：建运行用户与初始目录
+
+应用机只负责跑服务；代码由部署机（本地仓库）打包上传，因此这里**不需要 git、不需要访问 GitHub**。
 
 ```bash
 ssh dev
 
-# 1) 系统用户：无 shell、无密码；home 指向代码目录，供其后的 git pull 使用
+# 系统用户：无 shell、无密码；home 指向代码目录
 id phonesim >/dev/null 2>&1 || \
   useradd --system --home-dir /opt/phone-sim --shell /usr/sbin/nologin --no-create-home phonesim
 
-# 2) 首次克隆；已存在则快进更新
-if [ -d /opt/phone-sim/.git ]; then
-  git -C /opt/phone-sim pull --ff-only
-else
-  git clone https://github.com/wzqfwanj/phone-sim.git /opt/phone-sim
-fi
+# 初始目录：首次发布时由 deploy.sh 解压覆盖；先建好并归 phonesim
+install -d -o phonesim -g phonesim -m 0755 /opt/phone-sim
 
-# 3) 代码归 phonesim，保证后续 runuser -u phonesim -- git pull 有写权限
-chown -R phonesim:phonesim /opt/phone-sim
-chmod 0755 /opt/phone-sim
+# 解压工具（Ubuntu 自带）
+tar --version | head -1
 ```
 
-> 为什么要给运行用户写权限：升级方式是在应用机上以 `phonesim` 身份执行 `git pull`，
-> 若目录属 root，pull 会因无权写 `.git` 失败。
+> 代码同步不在这一节完成：完成第 2、3 节的一次性配置后，在本地仓库根目录执行
+> `bash deploy/deploy.sh` 完成首次发布（`git push` → `git archive` 打包 → `scp` 上传 →
+> 应用机解压覆盖 → `chown` → 重启）。首次发布前 `/opt/phone-sim` 是空目录、服务尚未启动，属正常。
 
 ## 2 应用机：环境变量文件
 
@@ -91,12 +99,20 @@ chmod 600 /etc/phone-sim.env
 
 ## 3 应用机：systemd 安装与自检
 
+在**本地仓库根目录**执行（先用 scp 把 unit 传到应用机——此时 `/opt/phone-sim` 还是空目录，
+不能从那里 `install`）：
+
 ```bash
-install -m 0644 /opt/phone-sim/deploy/phone-sim.service /etc/systemd/system/phone-sim.service
-systemctl daemon-reload
-systemctl enable --now phone-sim
-systemctl status phone-sim --no-pager
+scp deploy/phone-sim.service dev:/etc/systemd/system/phone-sim.service
+ssh dev 'set -e; chmod 0644 /etc/systemd/system/phone-sim.service; systemctl daemon-reload; systemctl enable phone-sim'
+
+# 首次发布：打包上传 + 解压 + 启动（脚本最后会 health check；细节见第 7 节）
+bash deploy/deploy.sh
 ```
+
+> 先 `enable` 而不是 `enable --now`：unit 的 `ExecStart` 依赖 `/opt/phone-sim/app.py`，
+> 要等首次发布（`deploy/deploy.sh`）把代码同步上去后，服务才能启动；脚本会在解压覆盖后
+> `systemctl restart phone-sim` 并轮询健康检查。
 
 自检：
 
@@ -237,26 +253,50 @@ journalctl -u caddy -f
 
 ## 7 升级
 
-应用机手动升级：
-
-```bash
-ssh dev
-runuser -u phonesim -- git -C /opt/phone-sim pull --ff-only
-systemctl restart phone-sim
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8140/api/health   # 期望 200
-```
-
-本地一键升级（推送代码 → 应用机拉取重启 → 网关机探测 /phone/）：
+发布流程（在本地仓库根目录、Git Bash 中执行）：
 
 ```bash
 bash deploy/deploy.sh
 ```
 
+脚本做的事：预检（工作区干净、分支为 main）→ `git push origin main` →
+`git archive --format=tar.gz -o .tmp-deploy/... HEAD` → `scp` 到 `dev:/tmp/phone-sim.tar.gz` →
+应用机 `rm -rf /opt/phone-sim && mkdir -p /opt/phone-sim` → `tar -xzf` 解压 →
+`chown -R phonesim:phonesim /opt/phone-sim` → `chmod -R go-w /opt/phone-sim` →
+`systemctl restart phone-sim` → 本机健康检查 → 网关机 `--resolve` 验证 `/phone/` →
+公网 401 提示。任一环节失败脚本以非 0 退出并打印对应排查命令。
+
+等价的纯手工命令（脚本失败时可用于逐步排查）：
+
+```bash
+# 1) 本地打包当前提交（HEAD）；未提交的改动不会被打进包
+git archive --format=tar.gz -o /tmp/phone-sim.tar.gz HEAD
+
+# 2) 上传到应用机
+scp /tmp/phone-sim.tar.gz dev:/tmp/phone-sim.tar.gz
+
+# 3) 应用机解压覆盖 + 权限 + 重启（不动 /var/lib/phone-sim 与 /etc/phone-sim.env）
+ssh dev 'set -euo pipefail
+rm -rf /opt/phone-sim
+mkdir -p /opt/phone-sim
+tar -xzf /tmp/phone-sim.tar.gz -C /opt/phone-sim
+chown -R phonesim:phonesim /opt/phone-sim
+chmod -R go-w /opt/phone-sim
+rm -f /tmp/phone-sim.tar.gz
+systemctl restart phone-sim
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8140/api/health'   # 期望 200
+
+# 4) 清理本地临时包
+rm -f /tmp/phone-sim.tar.gz
+```
+
 要点：
 
-- 前端是原生 HTML/CSS/JS，**没有构建步骤**，`git pull` + 重启即生效。
+- 应用机不装 git、不访问 GitHub；`/opt/phone-sim` 是普通目录，代码以本地仓库 `HEAD` 快照为准。
+- 前端是原生 HTML/CSS/JS，**没有构建步骤**，解压覆盖 + 重启即生效。
+- 只覆盖代码目录：`/var/lib/phone-sim`（SQLite 数据）与 `/etc/phone-sim.env`（配置）不受影响。
 - 仅更新代码时不需要动 Caddy；只有新增/修改子路径路由才需要第 4 节的备份 + validate + reload。
-- `deploy.sh` 会先检查工作区干净再 `git push`，因为应用机是从 GitHub 拉取的。
+- 若本仓库的 `deploy/phone-sim.service` 有变更，按第 3 节重新 scp 安装 unit 并 `systemctl daemon-reload`。
 
 ## 8 数据备份
 
@@ -310,5 +350,5 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8140/api/health   # �
 | --- | --- |
 | [`deploy/phone-sim.service`](./phone-sim.service) | systemd 单元：用户、环境文件、StateDirectory、基础加固 |
 | [`deploy/caddy-phone-sim.conf`](./caddy-phone-sim.conf) | 网关 Caddyfile 片段（`/phone/` 子路径反代） |
-| [`deploy/deploy.sh`](./deploy.sh) | 本地一键更新脚本（Git Bash / Linux / macOS） |
+| [`deploy/deploy.sh`](./deploy.sh) | 本地一键发布脚本：`git push` → `git archive` 打包 → `scp` → 应用机解压覆盖 → 重启（Git Bash / Linux / macOS） |
 | [`../README.md`](../README.md) | 项目介绍、本地运行、接口与配置 |

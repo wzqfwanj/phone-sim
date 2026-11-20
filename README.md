@@ -68,6 +68,7 @@ phone-sim/
 │       └── mobile.png
 ├── README.md
 ├── LICENSE
+├── .gitattributes            # 统一 LF 行尾，避免 Windows 开发 / Linux 部署差异
 └── .gitignore
 ```
 
@@ -148,7 +149,7 @@ python -m unittest discover -s tests -v
 | [deploy/phone-sim.service](deploy/phone-sim.service) | systemd 单元：`phonesim` 用户、`/etc/phone-sim.env`、`/var/lib/phone-sim` 数据目录、基础加固 |
 | [deploy/caddy-phone-sim.conf](deploy/caddy-phone-sim.conf) | 网关机 Caddyfile 片段：`redir` + `handle_path /phone/*` + `reverse_proxy` |
 | [deploy/DEPLOY.md](deploy/DEPLOY.md) | 完整部署手册 |
-| [deploy/deploy.sh](deploy/deploy.sh) | 本地一键更新：推送代码 → 应用机拉取重启 → 网关机探测 `/phone/` 返回 200 |
+| [deploy/deploy.sh](deploy/deploy.sh) | 本地一键发布：git push → git archive 打包 → scp 到应用机解压重启 → 网关探测 `/phone/` |
 
 一键更新（本地 Windows Git Bash）：
 

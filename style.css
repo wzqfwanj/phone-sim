@@ -132,6 +132,7 @@ h1 {
   border-radius: 50%;
   background: var(--bg);
   z-index: 20;
+  pointer-events: none; /* 只是装饰，不拦截状态栏点击 */
 }
 
 .screen {
@@ -240,6 +241,15 @@ h1 {
 .nav-btn svg {
   width: 14px;
   height: 14px;
+}
+
+/* 锁屏时导航栏整体变淡（点击由 JS 兜底拦截，不解锁） */
+.screen.is-locked .navbar {
+  opacity: 0.35;
+}
+
+.screen.is-locked .nav-btn {
+  cursor: default;
 }
 
 /* ---------- 层（锁屏 / 桌面 / 抽屉 / 应用 / 通知栏） ---------- */
@@ -1013,6 +1023,13 @@ h1 {
   transform: translate(-50%, 0);
 }
 
+/* 手势在被模拟的屏幕内完成，不让浏览器把纵向滑动当成页面滚动 */
+.lock,
+.home,
+.statusbar {
+  touch-action: none;
+}
+
 /* ---------- 滚动条（灰阶、细） ---------- */
 
 .notes-list,
@@ -1042,14 +1059,18 @@ h1 {
 
 @media (max-width: 560px) {
   main {
-    padding: 40px 16px 56px;
+    padding: 24px 16px 28px;
   }
 
   .head {
-    margin-bottom: 28px;
+    margin-bottom: 16px;
   }
 
+  /* 窄屏按「可视高度」缩放手机外壳，尽量一屏放下：避免页面滚动与屏幕内手势互相抢；
+     宽度下限 280px，保证 320px 宽的小屏也不会把内部网格挤坏 */
   .phone {
+    width: clamp(280px, calc((100vh - 176px) * 0.46154), 100%);
+    width: clamp(280px, calc((100svh - 176px) * 0.46154), 100%);
     padding: 7px;
     border-radius: 36px;
   }
@@ -1068,6 +1089,10 @@ h1 {
 
   .clock-now {
     font-size: 38px;
+  }
+
+  .stage-note {
+    font-size: 10.5px;
   }
 }
 
