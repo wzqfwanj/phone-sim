@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="description" content="网页版安卓手机界面模拟器：锁屏、桌面、应用抽屉、计算器、备忘录、时钟、设置与通知栏。" />
+  <title>安卓手机模拟器</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <header class="head">
+      <div>
+        <h1>安卓手机模拟器</h1>
+        <p class="sub">网页版安卓界面模拟：锁屏、桌面、计算器与备忘录</p>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="stage">
+        <div class="phone" id="phone">
+          <div class="screen" id="screen">
+
+            <!-- ===== 状态栏 ===== -->
+            <div class="statusbar" id="statusbar" role="button" tabindex="0" aria-label="下拉通知栏">
+              <span class="sb-time" id="sbTime">--:--</span>
+              <span class="sb-icons">
+                <svg class="sb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                  <path d="M3 18h2M8 15v3M13 11v7M18 6v12" />
+                </svg>
+                <svg class="sb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                  <path d="M2.5 8.5a15 15 0 0 1 19 0M5.8 12a10 10 0 0 1 12.4 0M9.2 15.4a5 5 0 0 1 5.6 0" />
+                  <circle cx="12" cy="18.8" r="1.1" fill="currentColor" stroke="none" />
+                </svg>
+                <span class="sb-battery" aria-hidden="true">
+                  <svg viewBox="0 0 26 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="2" y="7" width="18" height="10" rx="2" />
+                    <path d="M22 10.5v3" stroke-linecap="round" />
+                    <rect x="4" y="9" width="13" height="6" rx="1" fill="currentColor" stroke="none" />
+                  </svg>
+                  <b id="sbBattery">86%</b>
+                </span>
+              </span>
+            </div>
+
+            <!-- ===== 锁屏 ===== -->
+            <section class="layer lock" id="lock" aria-label="锁屏">
+              <div class="lock-clock">
+                <p class="lock-time" id="lockTime">--:--</p>
+                <p class="lock-date" id="lockDate">--</p>
+              </div>
+              <div class="lock-bottom">
+                <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                  <rect x="5" y="10.5" width="14" height="9.5" rx="2.5" />
+                  <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+                </svg>
+                <p class="lock-hint">上滑解锁</p>
+              </div>
+            </section>
+
+            <!-- ===== 桌面 ===== -->
+            <section class="layer home" id="home" aria-label="桌面">
+              <div class="home-widget" aria-hidden="true">
+                <p class="hw-time" id="hwTime">--:--</p>
+                <p class="hw-date" id="hwDate">--</p>
+              </div>
+              <div class="home-grid" id="homeGrid"></div>
+              <button class="home-hint" data-act="open-drawer" type="button">上滑或点此打开应用抽屉</button>
+              <div class="home-dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
+            </section>
+
+            <!-- ===== 应用抽屉 ===== -->
+            <section class="layer drawer" id="drawer" aria-label="应用抽屉">
+              <div class="drawer-head">
+                <span>全部应用</span>
+                <button class="icon-btn" data-act="close-drawer" type="button" aria-label="关闭应用抽屉">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
+              <div class="drawer-grid" id="drawerGrid"></div>
+              <p class="drawer-note">未内置应用仅作占位演示</p>
+            </section>
+
+            <!-- ===== 应用容器 ===== -->
+            <section class="layer appview" id="appview" aria-hidden="true">
+              <header class="app-bar">
+                <button class="icon-btn" data-act="app-back" type="button" aria-label="返回">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14.5 5.5 8 12l6.5 6.5" />
+                  </svg>
+                </button>
+                <h2 class="app-title" id="appTitle">应用</h2>
+                <span class="app-bar-holder" aria-hidden="true"></span>
+              </header>
+              <div class="app-body" id="appBody"></div>
+            </section>
+
+            <!-- ===== 通知栏 ===== -->
+            <section class="layer shade" id="shade" aria-hidden="true">
+              <div class="shade-head">
+                <span id="shadeDate">--</span>
+                <button class="icon-btn" data-act="close-shade" type="button" aria-label="关闭通知栏">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
+              <div class="qs-grid" id="qsGrid"></div>
+              <div class="notif-list" id="notifList"></div>
+              <button class="shade-close" data-act="close-shade" type="button">收起通知栏</button>
+            </section>
+
+            <!-- ===== 提示条 ===== -->
+            <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+            <!-- ===== 导航栏 ===== -->
+            <nav class="navbar" aria-label="系统导航">
+              <button class="nav-btn" data-act="nav-back" type="button" aria-label="返回">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                  <path d="M15 5 8 12l7 7" />
+                </svg>
+              </button>
+              <button class="nav-btn" data-act="nav-home" type="button" aria-label="主屏幕">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                  <circle cx="12" cy="12" r="5.5" />
+                </svg>
+              </button>
+              <button class="nav-btn" data-act="nav-recents" type="button" aria-label="最近任务">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                  <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" />
+                </svg>
+              </button>
+            </nav>
+
+          </div>
+        </div>
+        <p class="stage-note">灰阶界面模拟 · 不运行真实 APK · 备忘录数据保存于本机后端</p>
+      </div>
+    </div>
+  </main>
+
+  <noscript>
+    <p class="noscript-note">模拟器需要原生 JavaScript（交互界面），请开启后再访问。</p>
+  </noscript>
+
+  <script src="app.js"></script>
+</body>
+</html>
