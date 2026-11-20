@@ -14,3 +14,7 @@ data/
 # 鎿嶄綔绯荤粺鏉傞」
 Thumbs.db
 .DS_Store
+
+# 独立仓库目录（android-box 是另一个 git 仓库）
+android-box/
+
