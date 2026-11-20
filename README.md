@@ -1,10 +1,13 @@
 # 安卓手机模拟器
 
+> **⚠️ 已被真正的安卓系统取代**：在线真安卓见 <https://wkeeli.cn/android/>（仓库：[wzqfwanj/android-box](https://github.com/wzqfwanj/android-box)）。
+> `/phone/` 已停用并 308 跳转到 `/android/`；本仓库仅作为界面模拟器的历史版本保留。
+
 > 网页版安卓手机界面模拟器：在浏览器里模拟手机系统界面与内置应用，**不运行真实 APK**。
 
 `Python 3.10+` · `零第三方依赖` · `零构建（build: none）` · `MIT License`
 
-**在线地址：** <https://wkeeli.cn/phone/>
+**在线地址：** ~~<https://wkeeli.cn/phone/>~~ → 已跳转到 <https://wkeeli.cn/android/>
 
 站点由**全站 Basic Auth** 保护，访问时需使用站点账号 `wkeeli` 登录（密码由站点管理员维护，本仓库不含密码）。
 应用内部没有独立登录页，认证完全由网关负责。
