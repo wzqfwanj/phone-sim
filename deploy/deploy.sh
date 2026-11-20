@@ -71,8 +71,18 @@ current_branch="$(git rev-parse --abbrev-ref HEAD)"
 
 # ---------- 2. 推送到 GitHub（远端备份；失败即中止） ----------
 log "推送 $BRANCH 到 GitHub ..."
-git push origin "$BRANCH" || \
-  die "git push 失败：请检查 GitHub 凭据与代理（本仓库 local http.proxy 指向 127.0.0.1:7897）。不要跳过推送，先修复网络/认证。"
+# 本机经本地代理访问 GitHub，偶发 TLS 握手失败，因此最多重试 3 次
+push_ok=0
+for attempt in 1 2 3; do
+  if git push origin "$BRANCH"; then
+    push_ok=1
+    break
+  fi
+  log "第 $attempt 次推送失败，3 秒后重试..."
+  sleep 3
+done
+[ "$push_ok" = "1" ] || \
+  die "git push 连续失败：请检查 GitHub 凭据与代理（本仓库 local http.proxy 指向 127.0.0.1:7897）。不要跳过推送，先修复网络/认证。"
 COMMIT="$(git rev-parse --short HEAD)"
 log "已推送 commit $COMMIT"
 
