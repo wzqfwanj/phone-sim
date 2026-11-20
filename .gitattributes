@@ -1,0 +1,7 @@
+# 统一按 LF 存储，避免 Windows 上开发、Linux 上部署时出现换行差异
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
